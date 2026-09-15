@@ -1,0 +1,126 @@
+{
+    "Soporte TI Part Time": {
+        "exitos": 5,
+        "descartes": 20
+    },
+    "Vendedor Retail": {
+        "exitos": 2,
+        "descartes": 35
+    },
+    "Call Center": {
+        "exitos": 8,
+        "descartes": 49
+    },
+    "Recepcionista Part Time": {
+        "exitos": 9,
+        "descartes": 21
+    },
+    "Operaciones Logísticas Part Time": {
+        "exitos": 7,
+        "descartes": 53
+    },
+    "Helpdesk Part Time": {
+        "exitos": 2,
+        "descartes": 0
+    },
+    "Atención al Cliente Part Time": {
+        "exitos": 6,
+        "descartes": 27
+    },
+    "Soporte TI part time": {
+        "exitos": 24,
+        "descartes": 374
+    },
+    "Ejecutivo Call Center": {
+        "exitos": 0,
+        "descartes": 1
+    },
+    "Call Center Part Time": {
+        "exitos": 2,
+        "descartes": 4
+    },
+    "Call Center part time": {
+        "exitos": 12,
+        "descartes": 102
+    },
+    "Recepcionista part time": {
+        "exitos": 1,
+        "descartes": 49
+    },
+    "Atención al cliente part time": {
+        "exitos": 8,
+        "descartes": 60
+    },
+    "Operaciones logísticas part time": {
+        "exitos": 0,
+        "descartes": 50
+    },
+    "Asistente administrativo part time": {
+        "exitos": 0,
+        "descartes": 10
+    },
+    "Analista junior part time": {
+        "exitos": 0,
+        "descartes": 5
+    },
+    "Monitoreo de redes part time": {
+        "exitos": 0,
+        "descartes": 5
+    },
+    "Soporte técnico remoto part time": {
+        "exitos": 0,
+        "descartes": 5
+    },
+    "Helpdesk part time": {
+        "exitos": 0,
+        "descartes": 20
+    },
+    "Asistente administrativo": {
+        "exitos": 1,
+        "descartes": 13
+    },
+    "Ejecutivo de atención part time": {
+        "exitos": 0,
+        "descartes": 5
+    },
+    "Monitoreo de sistemas part time": {
+        "exitos": 0,
+        "descartes": 5
+    },
+    "Digitador part time": {
+        "exitos": 0,
+        "descartes": 10
+    },
+    "Vendedor retail part time": {
+        "exitos": 0,
+        "descartes": 7
+    },
+    "Monitoreo TI part time": {
+        "exitos": 0,
+        "descartes": 42
+    },
+    "Asistente Administrativo": {
+        "exitos": 0,
+        "descartes": 44
+    },
+    "Digitador junior": {
+        "exitos": 0,
+        "descartes": 30
+    },
+    "Soporte técnico part time": {
+        "exitos": 0,
+        "descartes": 30
+    },
+    "Vendedor retail fines de semana": {
+        "exitos": 1,
+        "descartes": 29
+    },
+    "Promotor deportivo part time": {
+        "exitos": 8,
+        "descartes": 16
+    },
+    "Vendedor retail deportivo part time": {
+        "exitos": 1,
+        "descartes": 10
+    }
+}

@@ -1,0 +1,16 @@
+# Archivos de entorno y claves
+.env
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Archivos de sesión y temporales
+estado_sesion.json
+historial.txt
+informe_errores_qa.html
