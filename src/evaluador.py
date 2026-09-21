@@ -116,22 +116,32 @@ class MotorIA:
     def _responder_sync(self, pregunta: str, mi_cv: str) -> str:
         memoria_rag = self._leer_memoria_respuestas()
 
-        instrucciones = f"""Actúa como el candidato.
-        Comuna: El Bosque | Disp: Part-time | Cel: +56932147684 | Sin experiencia inventada.
+        instrucciones = f"""Actúa como el candidato llenando un formulario de empleo. Eres una persona, no una IA.
+        Datos inmutables: Comuna: El Bosque | Disp: Part-time / Fines de Semana | Cel: +56932147684 | Correo: 28exequielaguilera@gmail.com
         
-        🧠 BASE DE CONOCIMIENTO:
+        🧠 BASE DE CONOCIMIENTO (Prioridad 1):
         {memoria_rag}
         
-        PERFIL: {mi_cv} 
+        PERFIL BASE: {mi_cv} 
         PREGUNTA DEL FORMULARIO: {pregunta}
         
-        INSTRUCCIÓN VITAL: Revisa la BASE DE CONOCIMIENTO. Si coincide conceptualmente, basa tu respuesta en esa idea. Si es nueva, genera una respuesta persuasiva.
+        🎯 REGLAS DE ORO PARA VENDERTE (PERSUASIÓN AVANZADA):
+        1. PROHIBIDO DECIR "NO TENGO EXPERIENCIA". Transforma tus vivencias en experiencia útil. 
+        2. ADAPTA EL DISCURSO AL CARGO (SIN REPETIR SIEMPRE "SOY ESTUDIANTE DE DUOC"):
+           - Para Retail/Ventas/Atención/Comida: Traduce tu experiencia de KFC, Burger King y Carnicería a lenguaje corporativo: "Manejo de alto flujo de clientes bajo presión, resolución de conflictos en tiempo real, control de stock y cumplimiento de métricas".
+           - Para Administrativo/Cajero/Sistemas: Destaca tu facilidad natural con la tecnología. Di algo como: "Dada mi base informática, aprendo sistemas POS, ERP y software de gestión en tiempo récord", SIN nombrar a Duoc UC en cada respuesta.
+           - Para Seguridad: Destaca tu liderazgo como Jefe de Guardias en Liderman, control de accesos y manejo de situaciones críticas con criterio.
+           - Para Mantenimiento (Solo si el cargo es técnico): Destaca tus habilidades en "mantenimiento preventivo, diagnóstico y electromecánica de precisión", omitiendo que son máquinas de coser a menos que pregunten específicamente por maquinaria textil.
+        3. EL "PART-TIME IDEAL": Si preguntan motivación o por qué te interesa, responde que buscas estabilidad laboral a largo plazo en formato part-time, demostrando alto compromiso, responsabilidad y madurez.
+        4. LA REGLA DE LA HUMILDAD TÉCNICA: SOLO di la verdad si te preguntan por una herramienta hiper-especializada (Ej: SAP avanzado, lenguajes de programación específicos). Responde: "Tengo bases sólidas tecnológicas y gran facilidad para aprender software nuevo rápidamente".
+        5. Tono directo, seco, seguro de sí mismo y persuasivo. PROHIBIDO saludar o despedirse.
+        6. DATOS CORTOS: Si piden un número, comuna o correo, responde SOLO con ese dato.
         """
         config = types.GenerateContentConfig(temperature=0.3)
         texto = self._ejecutar_con_reintentos(instrucciones, config)
 
         if texto: return texto.strip().replace('"', '')
-        return "Estudiante en formación con rápida adaptación y muchas ganas de aportar al equipo."
+        return "Disponibilidad inmediata."
 
     async def sugerir_roles(self, cv: str, stats: dict): return await asyncio.to_thread(self._sugerir_sync, cv, stats)
     async def evaluar_oferta(self, texto: str, cv: str): return await asyncio.to_thread(self._evaluar_sync, texto, cv)
