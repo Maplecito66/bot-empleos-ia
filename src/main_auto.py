@@ -8,7 +8,6 @@ from perfil import PerfilCandidato
 
 DIRECTORIO_ACTUAL = os.path.dirname(os.path.abspath(__file__))
 RUTA_SESION = os.path.join(DIRECTORIO_ACTUAL, "estado_sesion.json")
-
 load_dotenv(os.path.join(DIRECTORIO_ACTUAL, ".env"))
 
 class NotificadorDiscord:
@@ -25,26 +24,32 @@ class NotificadorDiscord:
     async def reportar_estrategia(self, roles):
         if not self.url_general: return
         texto_roles = "\n".join([f"**{i}.** {r}" for i, r in enumerate(roles, 1)])
-        embed = {
-            "title": "🧠 Sistema Híbrido Iniciado (PRODUCCIÓN)",
-            "description": f"🔄 **Motor IA en línea**\n\n🎯 **[ESTRATEGIA IA] Roles:**\n{texto_roles}",
-            "color": 3447003
-        }
+        embed = {"title": "🧠 Sistema Híbrido Iniciado (PRODUCCIÓN)", "description": f"🔄 **Motor IA en línea**\n\n🎯 **[ESTRATEGIA IA] Roles:**\n{texto_roles}", "color": 3447003}
         try: await asyncio.to_thread(requests.post, self.url_general, json={"embeds": [embed]})
         except: pass
 
     async def reportar_exito(self, titulo, url, qa_log, portal_nombre):
         if not self.url_exitos: return
-        texto_qa = "\n\n".join(qa_log) if qa_log else "🚀 Postulación Express (1-Clic sin preguntas)."
-        if len(texto_qa) > 1000: texto_qa = texto_qa[:997] + "..."
         color_embed = 3447003 if portal_nombre == "Computrabajo" else 10181046 if portal_nombre == "Laborum" else 3066993
-        embed = {
-            "title": f"✅ ¡POSTULACIÓN ENVIADA en {portal_nombre}!",
-            "description": f"**Cargo:** [{titulo}]({url})\n**Hora:** {datetime.now().strftime('%H:%M:%S')}",
-            "color": color_embed,
-            "fields": [{"name": "🧠 Análisis y Respuestas", "value": f"```text\n{texto_qa}\n```"}]
-        }
+        embed = {"title": f"✅ ¡POSTULACIÓN ENVIADA en {portal_nombre}!", "description": f"**Cargo:** [{titulo}]({url})\n**Hora:** {datetime.now().strftime('%H:%M:%S')}", "color": color_embed, "fields": []}
+
+        if not qa_log:
+            embed["fields"].append({"name": "🧠 Análisis", "value": "🚀 Postulación Express (1-Clic sin preguntas)."})
+        else:
+            texto_completo = "\n\n".join(qa_log)
+            # 👇 SOLUCIÓN DISCORD: Cortar el texto si es muy largo
+            chunks = [texto_completo[i:i+990] for i in range(0, len(texto_completo), 990)]
+            for idx, chunk in enumerate(chunks):
+                nombre_campo = f"🧠 Respuestas (Parte {idx+1})" if len(chunks) > 1 else "🧠 Análisis y Respuestas"
+                embed["fields"].append({"name": nombre_campo, "value": f"```text\n{chunk}\n```"})
+
         try: await asyncio.to_thread(requests.post, self.url_exitos, json={"embeds": [embed]})
+        except: pass
+
+    async def reportar_error(self, titulo, url, msj, portal_nombre):
+        if not self.url_errores: return
+        embed = {"title": f"⚠️ Error o Descarte en {portal_nombre}", "description": f"**Cargo:** [{titulo}]({url})\n**Problema:** {msj}", "color": 15158332}
+        try: await asyncio.to_thread(requests.post, self.url_errores, json={"embeds": [embed]})
         except: pass
 
 class MemoriaBot:
@@ -135,16 +140,19 @@ class OrquestadorBot:
                         portal = self.lab if "laborum" in oferta['url'] else self.tr if "trabajando" in oferta['url'] else self.ct
                         msj, log = await portal.postular(context, oferta['url'])
 
+                        nombre_plataforma = "Laborum" if "laborum" in oferta['url'] else "Trabajando.com" if "trabajando" in oferta['url'] else "Computrabajo"
+
                         if "Éxito" in msj:
                             self.exitos += 1
                             self.memoria.registrar(cargo, True)
                             print(f"   🏆 ÉXITO! {oferta['titulo']}\n   🔗 {oferta['url']}")
-                            nombre_plataforma = "Laborum" if "laborum" in oferta['url'] else "Trabajando.com" if "trabajando" in oferta['url'] else "Computrabajo"
                             await self.discord.reportar_exito(oferta['titulo'], oferta['url'], log, nombre_plataforma)
                             self.guardar_auditoria_qa(oferta['titulo'], nombre_plataforma, log)
                         else:
                             self.memoria.registrar(cargo, False)
                             print(f"   => {msj}")
+                            await self.discord.reportar_error(oferta['titulo'], oferta['url'], msj, nombre_plataforma)
+
                         portal.registrar_url(oferta['url'])
                     else:
                         print(f"   ❌ Puntaje bajo ({evaluacion.get('puntaje', 0)}): {evaluacion.get('razon', '')}")

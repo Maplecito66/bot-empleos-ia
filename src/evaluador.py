@@ -7,8 +7,6 @@ from google import genai
 from google.genai import types
 
 class MotorIA:
-    """Clase que encapsula la lógica, conexión (Rotación de Claves) y Memoria (RAG) con la API de Gemini."""
-
     def __init__(self):
         directorio_actual = os.path.dirname(os.path.abspath(__file__))
         load_dotenv(os.path.join(directorio_actual, ".env"))
@@ -19,7 +17,6 @@ class MotorIA:
 
         self.api_keys = [k.strip() for k in claves_str.split(',') if k.strip()]
         self.indice_clave = 0
-        # 👇 EL MODELO CORRECTO: Inteligente, rapidísimo y con cuota gigante diaria
         self.modelo = "gemini-flash-lite-latest"
         self._conectar_cliente()
 
@@ -30,76 +27,60 @@ class MotorIA:
 
     def _rotar_clave(self):
         self.indice_clave = (self.indice_clave + 1) % len(self.api_keys)
-        print(f"   ⚠️ Problema con la API detectado. Rotando a la clave {self.indice_clave + 1}...")
+        print(f"   ⚠️ Cambiando a la clave {self.indice_clave + 1}...")
         self._conectar_cliente()
 
-    # 👇 TABULACIÓN REPARADA: Ahora sí pertenece a la clase MotorIA
     def _ejecutar_con_reintentos(self, instrucciones: str, config: types.GenerateContentConfig, es_json: bool = False):
         max_intentos = len(self.api_keys) * 2
-
         for intento in range(max_intentos):
             try:
-                print(f"   ⏳ [DEBUG] Conectando con Google usando '{self.modelo}'...")
-                res = self.client.models.generate_content(
-                    model=self.modelo,
-                    contents=instrucciones,
-                    config=config
-                )
-                print("   ✅ [DEBUG] Respuesta recibida con éxito.")
+                res = self.client.models.generate_content(model=self.modelo, contents=instrucciones, config=config)
                 return json.loads(res.text) if es_json else res.text
             except Exception as e:
-                print(f"   ⚠️ [DEBUG] Ocurrió un error en la API: {e}")
                 error_str = str(e).lower()
-                # Atrapa excesos de cuota, bloqueos de proyecto (403) y caídas de servidor (503)
-                if any(k in error_str for k in ["429", "quota", "exhausted", "rate limit", "too many", "503", "unavailable", "403", "permission_denied"]):
-                    self._rotar_clave()
-                    time.sleep(2)
+                if any(k in error_str for k in ["429", "quota", "exhausted", "rate limit"]):
+                    self._rotar_clave(); time.sleep(2)
+                elif any(k in error_str for k in ["503", "unavailable"]):
+                    self._rotar_clave(); time.sleep(5)
+                elif any(k in error_str for k in ["403", "permission_denied", "404"]):
+                    self._rotar_clave(); time.sleep(1)
                 else:
-                    print(f"   ⚠️ Error interno API: {e}")
                     time.sleep(2)
         return None
 
     def _sugerir_sync(self, mi_cv: str, estadisticas: dict) -> list:
         stats_str = json.dumps(estadisticas, ensure_ascii=False) if estadisticas else "Sin datos."
         instrucciones = f"""
-        Actúa como un reclutador experto. Analiza el CV del candidato y sus estadísticas de búsqueda.
+        Actúa como un reclutador experto. Analiza el CV del candidato.
         Devuelve EXACTAMENTE 10 términos de búsqueda cortos en Chile, separados por comas.
         
-        Reglas de exploración estratégica (Epsilon-Greedy):
-        - 7 términos deben ser variaciones de las categorías más exitosas del historial (ej. TI, Administración, Recepción, Logística).
-        - 3 términos deben ser 'comodines' para explorar áreas distintas afines a sus habilidades.
+        Reglas de exploración estratégica:
+        - El candidato tiene experiencia en: Informática, Soporte, Guardias de Seguridad (Liderman), Comida Rápida (Burger King/KFC), y Ventas.
+        - Genera búsquedas balanceadas abarcando todas esas áreas.
         - OBLIGATORIO: Todos los términos deben incluir 'part time' o 'fines de semana' al final.
-        - NO incluyas comida rápida ni guardias de seguridad.
-        - Responde ÚNICAMENTE con la lista separada por comas, sin texto adicional.
-        
-        HISTORIAL DE DESEMPEÑO: {stats_str}
-        CV: {mi_cv}
+        - Responde ÚNICAMENTE con la lista separada por comas.
+        HISTORIAL: {stats_str} \nCV: {mi_cv}
         """
         config = types.GenerateContentConfig(temperature=0.6)
         texto = self._ejecutar_con_reintentos(instrucciones, config)
-
         if texto:
-            texto_limpio = texto.replace('\n', '').replace('"', '').replace("'", "")
-            roles = [r.strip() for r in texto_limpio.split(',') if 3 < len(r.strip()) < 50]
-            return roles[:10] if len(roles) >= 5 else ["Soporte TI Part Time", "Call Center Part Time", "Administrativo Part Time"]
-        return ["Soporte TI Part Time", "Call Center Part Time"]
+            roles = [r.strip() for r in texto.replace('\n', '').replace('"', '').replace("'", "").split(',') if 3 < len(r.strip()) < 50]
+            return roles[:10] if len(roles) >= 5 else ["Soporte TI Part Time", "Cajero Part Time", "Guardia Fines de Semana"]
+        return ["Soporte TI Part Time", "Cajero Part Time"]
 
     def _evaluar_sync(self, texto_oferta: str, mi_cv: str) -> dict:
         instrucciones = f"""
         Evalúa esta oferta basándote en el CV.
-        1. Jornada completa (>30 hrs) → puntaje < 50
-        2. Guardia / comida rápida → puntaje = 0
-        3. Comuna: El Bosque (RM). Presencial en otra región → 0
+        1. Jornada completa (>30 hrs) → puntaje < 50. El candidato busca solo PART TIME.
+        2. Guardia full time o conserje full time → puntaje 0
+        3. Comuna: El Bosque (RM). Presencial en otra región lejana → 0
         
         JSON exacto: "puntaje" (0-100), "razon" (texto corto), "carta_presentacion" (párrafo), "sueldo", "comuna".
-        CV: {mi_cv}
-        OFERTA: {texto_oferta[:1500]}
+        CV: {mi_cv} \nOFERTA: {texto_oferta[:1500]}
         """
         config = types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1)
-        resultado = self._ejecutar_con_reintentos(instrucciones, config, es_json=True)
-
-        if resultado: return resultado
-        return {"puntaje": 0, "razon": "Error IA Exhausta", "carta_presentacion": "", "sueldo": "N/A", "comuna": "N/A"}
+        res = self._ejecutar_con_reintentos(instrucciones, config, es_json=True)
+        return res if res else {"puntaje": 0, "razon": "Error IA Exhausta", "carta_presentacion": "", "sueldo": "N/A", "comuna": "N/A"}
 
     def _leer_memoria_respuestas(self) -> str:
         ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "base_conocimiento.json")
@@ -107,39 +88,34 @@ class MotorIA:
             try:
                 with open(ruta, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    if data:
-                        return "\n".join([f"- Si preguntan por '{k}': responde integrando esta idea: '{v}'" for k, v in data.items()])
-            except Exception as e:
-                print(f"⚠️ Error leyendo base de conocimiento: {e}")
+                    if data: return "\n".join([f"- Si preguntan por '{k}': usa esta idea: '{v}'" for k, v in data.items()])
+            except: pass
         return "No hay respuestas predefinidas."
 
     def _responder_sync(self, pregunta: str, mi_cv: str) -> str:
         memoria_rag = self._leer_memoria_respuestas()
-
         instrucciones = f"""Actúa como el candidato llenando un formulario de empleo. Eres una persona, no una IA.
         Datos inmutables: Comuna: El Bosque | Disp: Part-time / Fines de Semana | Cel: +56932147684 | Correo: 28exequielaguilera@gmail.com
         
-        🧠 BASE DE CONOCIMIENTO (Prioridad 1):
-        {memoria_rag}
-        
+        🧠 BASE DE CONOCIMIENTO: {memoria_rag}
         PERFIL BASE: {mi_cv} 
         PREGUNTA DEL FORMULARIO: {pregunta}
         
-        🎯 REGLAS DE ORO PARA VENDERTE (PERSUASIÓN AVANZADA):
-        1. PROHIBIDO DECIR "NO TENGO EXPERIENCIA". Transforma tus vivencias en experiencia útil. 
-        2. ADAPTA EL DISCURSO AL CARGO (SIN REPETIR SIEMPRE "SOY ESTUDIANTE DE DUOC"):
-           - Para Retail/Ventas/Atención/Comida: Traduce tu experiencia de KFC, Burger King y Carnicería a lenguaje corporativo: "Manejo de alto flujo de clientes bajo presión, resolución de conflictos en tiempo real, control de stock y cumplimiento de métricas".
-           - Para Administrativo/Cajero/Sistemas: Destaca tu facilidad natural con la tecnología. Di algo como: "Dada mi base informática, aprendo sistemas POS, ERP y software de gestión en tiempo récord", SIN nombrar a Duoc UC en cada respuesta.
-           - Para Seguridad: Destaca tu liderazgo como Jefe de Guardias en Liderman, control de accesos y manejo de situaciones críticas con criterio.
-           - Para Mantenimiento (Solo si el cargo es técnico): Destaca tus habilidades en "mantenimiento preventivo, diagnóstico y electromecánica de precisión", omitiendo que son máquinas de coser a menos que pregunten específicamente por maquinaria textil.
-        3. EL "PART-TIME IDEAL": Si preguntan motivación o por qué te interesa, responde que buscas estabilidad laboral a largo plazo en formato part-time, demostrando alto compromiso, responsabilidad y madurez.
-        4. LA REGLA DE LA HUMILDAD TÉCNICA: SOLO di la verdad si te preguntan por una herramienta hiper-especializada (Ej: SAP avanzado, lenguajes de programación específicos). Responde: "Tengo bases sólidas tecnológicas y gran facilidad para aprender software nuevo rápidamente".
-        5. Tono directo, seco, seguro de sí mismo y persuasivo. PROHIBIDO saludar o despedirse.
-        6. DATOS CORTOS: Si piden un número, comuna o correo, responde SOLO con ese dato.
+        🎯 REGLAS DE ORO (PERSUASIÓN AVANZADA Y ULTRA CORTA):
+        1. BREVEDAD EXTREMA: Tus respuestas persuasivas deben ser de MÁXIMO 1 o 2 oraciones (menos de 40 palabras). Ve directo al grano.
+        2. PROHIBIDO DECIR "NO TENGO EXPERIENCIA". Transforma tus vivencias en experiencia útil de forma concisa. 
+        3. ADAPTA EL DISCURSO AL CARGO (SIN EXPLICACIONES LARGAS):
+           - Retail/Ventas/Atención: "Tengo experiencia en manejo de alto flujo de clientes bajo presión, resolución de conflictos y control de stock".
+           - Administrativo/Sistemas: "Dada mi base tecnológica, aprendo sistemas POS, ERP y software de gestión en tiempo récord".
+           - Seguridad: "Poseo experiencia liderando equipos y controlando accesos e incidencias como Jefe de Guardias".
+           - Mantenimiento: "Cuento con experiencia en mantenimiento preventivo, diagnóstico y electromecánica de precisión".
+        4. EL "PART-TIME IDEAL": Si preguntan motivación, responde brevemente: "Busco estabilidad laboral a largo plazo para complementar mis estudios".
+        5. LA REGLA DE LA HUMILDAD TÉCNICA: SOLO di la verdad si preguntan por una herramienta hiper-especializada. Responde: "Tengo bases sólidas tecnológicas y gran facilidad para aprender software rápidamente".
+        6. Tono directo y persuasivo. PROHIBIDO saludar o despedirse.
+        7. DATOS CORTOS: Si piden SOLO un número, comuna o correo, responde SOLO con la palabra exacta, sin oraciones.
         """
         config = types.GenerateContentConfig(temperature=0.3)
         texto = self._ejecutar_con_reintentos(instrucciones, config)
-
         if texto: return texto.strip().replace('"', '')
         return "Disponibilidad inmediata."
 

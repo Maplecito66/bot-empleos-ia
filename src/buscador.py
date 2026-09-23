@@ -61,6 +61,11 @@ class Computrabajo(PortalEmpleo):
             await page.goto(url, wait_until="domcontentloaded", timeout=60000)
             if "Bad Request" in await page.title(): return "Oferta expirada", []
 
+            # Filtro temprano si la página ya dice que estás postulado antes de hacer click
+            content_early = (await page.content()).lower()
+            if "ya te postulaste" in content_early or "ya postulaste" in content_early:
+                return "Aviso: Ya estabas postulado anteriormente", []
+
             try:
                 btn = page.locator("a.b_primary[data-href-offer-apply], a.b_primary:has-text('Postularme')").first
                 await btn.wait_for(state="visible", timeout=5000)
@@ -153,7 +158,12 @@ class Computrabajo(PortalEmpleo):
             for _ in range(8):
                 await page.wait_for_timeout(1000)
                 content = (await page.content()).lower()
-                if any(kw in content for kw in ["postulaste correctamente", "postulación enviada", "ya te postulaste", "exitosamente"]):
+
+                # 👇 NUEVO FILTRO FINAL: Chequea si el mensaje fue de que ya estabas postulado
+                if "ya te postulaste" in content or "ya estás postulado" in content or "ya postulaste" in content:
+                    return "Aviso: Ya estabas postulado anteriormente", qa_log
+
+                if any(kw in content for kw in ["postulaste correctamente", "postulación enviada", "exitosamente"]):
                     return "Éxito: Postulación enviada.", qa_log
 
             return "Aviso: Postulación dudosa", qa_log
@@ -192,6 +202,11 @@ class Laborum(PortalEmpleo):
         qa_log = []
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+
+            content_early = (await page.content()).lower()
+            if "ya postulado" in content_early or "ya te postulaste" in content_early:
+                return "Aviso: Ya estabas postulado anteriormente", []
+
             try:
                 btn = page.locator("button:has-text('Postularme')").first
                 await btn.wait_for(state="visible", timeout=5000)
@@ -217,7 +232,12 @@ class Laborum(PortalEmpleo):
 
             for _ in range(5):
                 await page.wait_for_timeout(1000)
-                if "exitosa" in (await page.content()).lower(): return "Éxito: Postulación enviada.", qa_log
+                content = (await page.content()).lower()
+                if "ya postulado" in content or "ya te postulaste" in content:
+                    return "Aviso: Ya estabas postulado anteriormente", qa_log
+                if "exitosa" in content or "postulación enviada" in content:
+                    return "Éxito: Postulación enviada.", qa_log
+
             return "Aviso: Postulación dudosa", qa_log
         except Exception as e: return f"Error: {e}", []
         finally: await page.close()
@@ -261,6 +281,11 @@ class TrabajandoCom(PortalEmpleo):
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=60000)
             await page.wait_for_timeout(3000)
+
+            content_early = (await page.content()).lower()
+            if "ya te postulaste" in content_early or "ya postulaste" in content_early:
+                return "Aviso: Ya estabas postulado anteriormente", []
+
             try:
                 btn = page.locator("button:has-text('Postular'), a:has-text('Postular')").first
                 await btn.wait_for(state="visible", timeout=5000)
@@ -283,8 +308,13 @@ class TrabajandoCom(PortalEmpleo):
             for _ in range(8):
                 await page.wait_for_timeout(1000)
                 content = (await page.content()).lower()
-                if any(kw in content for kw in ["éxito", "postulaste", "enviada", "felicitaciones"]):
+
+                if "ya te postulaste" in content or "ya postulaste" in content:
+                    return "Aviso: Ya estabas postulado anteriormente", qa_log
+
+                if any(kw in content for kw in ["éxito", "enviada", "felicitaciones", "postulación exitosa"]):
                     return "Éxito: Postulación enviada.", qa_log
+
             return "Aviso: Postulación dudosa", qa_log
         except Exception as e: return f"Error: {e}", []
         finally: await page.close()
